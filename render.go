@@ -394,3 +394,14 @@ func gpuBlock(w, h int, g gpuInfo, dark bool) []string {
 	}
 	return c.lines()
 }
+
+// piGpuBlock renders the Raspberry Pi VideoCore GPU: a load bar (from v3d
+// gpu_stats) plus the fixed core clock label. No per-process memory or DVFS —
+// the VC GPU exposes neither.
+func piGpuBlock(w, h int, load float64, dark bool) []string {
+	c := newCanvas(w, h)
+	c.box("GPU")
+	ty := drawHBars(c, []string{"Load"}, []string{fmt.Sprintf("%.0f%%", load)}, []float64{load}, []float64{100}, dark)
+	c.text(2, ty+1, "VideoCore VI  500MHz", -1)
+	return c.lines()
+}

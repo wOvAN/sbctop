@@ -64,7 +64,7 @@ func fileExists(path string) bool {
 // caps reports which Rockchip-only subsystems are present on this board.
 // Generic blocks (CPU / memory / thermals) always work; these gate the rest.
 type caps struct {
-	npu, rga, gpu bool
+	npu, rga, gpu, piGPU bool
 }
 
 func detectCaps() caps {
@@ -75,10 +75,15 @@ func detectCaps() caps {
 	if fileExists("/sys/kernel/debug/mali0/scheduler_state") {
 		gpu = true
 	}
+	piGPU := false
+	if dirs, _ := filepath.Glob("/sys/devices/platform/v3dbus/*/gpu_stats"); len(dirs) > 0 {
+		piGPU = true
+	}
 	return caps{
-		npu: fileExists(npuLoadPath),
-		rga: fileExists(rgaLoadPath),
-		gpu: gpu,
+		npu:   fileExists(npuLoadPath),
+		rga:   fileExists(rgaLoadPath),
+		gpu:   gpu,
+		piGPU: piGPU,
 	}
 }
 
@@ -260,6 +265,48 @@ func readGPU() gpuInfo {
 		g.memMB = total
 	}
 	return g
+}
+
+var prevPiGPU struct {
+	ts, rt uint64
+	primed bool
+}
+
+// readPiGPU samples the VideoCore (v3d) gpu_stats runtime counters and returns
+// GPU utilization as a percentage since the last call. The timestamp and
+// runtime columns are in nanoseconds; the load is the fraction of elapsed
+// time the GPU queues were busy.
+func readPiGPU() float64 {
+	dirs, _ := filepath.Glob("/sys/devices/platform/v3dbus/*/gpu_stats")
+	if len(dirs) == 0 {
+		return 0
+	}
+	b, err := os.ReadFile(dirs[0])
+	if err != nil {
+		return 0
+	}
+	var ts, rt uint64
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) != 4 {
+			continue
+		}
+		t, e1 := strconv.ParseUint(f[1], 10, 64)
+		r, e2 := strconv.ParseUint(f[3], 10, 64)
+		if e1 != nil || e2 != nil {
+			continue
+		}
+		ts = t
+		rt += r
+	}
+	load := 0.0
+	if ts > 0 && prevPiGPU.primed {
+		if dts := ts - prevPiGPU.ts; dts > 0 {
+			load = float64(rt-prevPiGPU.rt) / float64(dts) * 100
+		}
+	}
+	prevPiGPU.ts, prevPiGPU.rt, prevPiGPU.primed = ts, rt, true
+	return load
 }
 
 // parseGPUMem reads mali0 gpu_memory: a 2-field "<dev> <pages>" device line with

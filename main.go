@@ -107,8 +107,15 @@ func main() {
 				tLabels[i], tVals[i], tMaxes[i] = t.label, t.temp, t.high
 			}
 			var g gpuInfo
+			var piLoad float64
+			hasGPU := false
 			if cap.gpu {
 				g = readGPU()
+				hasGPU = true
+			}
+			if cap.piGPU {
+				piLoad = readPiGPU()
+				hasGPU = true
 			}
 
 			topH, botH := (h-1)/2, (h-1)-(h-1)/2
@@ -127,9 +134,12 @@ func main() {
 			botFns = append(botFns, func(w, h int) []string {
 				return hbarsBlock(w, h, "Thermals", tLabels, tVals, tMaxes, "ºC", *darkMode)
 			})
-			if cap.gpu {
+			if hasGPU {
 				botFns = append(botFns, func(w, h int) []string {
-					return gpuBlock(w, h, g, *darkMode)
+					if cap.gpu {
+						return gpuBlock(w, h, g, *darkMode)
+					}
+					return piGpuBlock(w, h, piLoad, *darkMode)
 				})
 			}
 			frame = append(renderRow(topFns, w, topH), renderRow(botFns, w, botH)...)
