@@ -16,10 +16,6 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(joined, "NPU Load") || !braille {
 		t.Fatalf("no braille plot rendered:\n%s", joined)
 	}
-	vb := vbarsBlock(40, 8, "CPU Load per core", []float64{50, 100}, true)
-	if !strings.Contains(strings.Join(vb, ""), "█") {
-		t.Fatal("no bars rendered")
-	}
 	hb := hbarsBlock(40, 5, "Thermals", []string{"soc"}, []float64{55}, []float64{85}, "ºC", false)
 	if !strings.Contains(strings.Join(hb, ""), "55ºC") {
 		t.Fatalf("thermal text missing:\n%s", strings.Join(hb, "\n"))
@@ -41,7 +37,7 @@ func TestDVFSSpark(t *testing.T) {
 }
 
 func TestCPUBlockHtop(t *testing.T) {
-	got := cpuBlock(40, 12, []float64{0, 50, 100}, true)
+	got := cpuBlock("CPU", 40, 12, []float64{0, 50, 100}, true)
 	joined := strings.Join(got, "\n")
 	if strings.Contains(joined, "▒") || strings.Contains(joined, "█") {
 		t.Fatalf("htop uses '|' not blocks:\n%s", joined)
@@ -57,7 +53,7 @@ func TestCPUBlockTwoColumns(t *testing.T) {
 	for i := range vals {
 		vals[i] = float64(i * 6)
 	}
-	got := cpuBlock(80, 8, vals, true)
+	got := cpuBlock("CPU", 80, 8, vals, true)
 	joined := strings.Join(got, "\n")
 	// Both core 0 and core 8 (second column) must appear.
 	if !strings.Contains(joined, "0[") || !strings.Contains(joined, "8[") {

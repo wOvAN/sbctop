@@ -82,7 +82,7 @@ func main() {
 				for i, v := range loads {
 					vals[i] = float64(v)
 				}
-				npuBlock = vbarsBlock(lw, topH, "NPU Load", vals, *darkMode)
+				npuBlock = cpuBlock("NPU Load", lw, topH, vals, *darkMode)
 			} else {
 				npuBlock = lineBlock(lw, topH, samples, npuState(), *darkMode)
 			}
@@ -104,7 +104,7 @@ func main() {
 				memH = topH
 			}
 			cpuH := topH - memH
-			cpuB := cpuBlock(rw, cpuH, cpus, *darkMode)
+			cpuB := cpuBlock("CPU", rw, cpuH, cpus, *darkMode)
 			memB := memBlock(rw, memH, memU, memT, swpU, swpT, *darkMode)
 			topRight := stackBlocks(cpuB, memB)
 

@@ -217,46 +217,6 @@ func lineBlock(w, h int, samples [][]int, npu string, dark bool) []string {
 	return c.lines()
 }
 
-func vbarsBlock(w, h int, title string, vals []float64, dark bool) []string {
-	c := newCanvas(w, h)
-	c.box(title)
-	n := len(vals)
-	if n == 0 || w < 10 || h < 5 {
-		return c.lines()
-	}
-	slot := (w - 7) / n
-	if slot < 1 {
-		slot = 1
-	}
-	barW := slot / 3
-	if barW < 1 {
-		barW = 1
-	}
-	plotH := h - 5
-	for i, v := range vals {
-		x := 6 + i*slot + (slot-barW)/2
-		bh := int(math.Round(v / 100 * float64(plotH)))
-		col := colorFor(v, dark)
-		for j := 0; j < bh; j++ {
-			for dx := 0; dx < barW; dx++ {
-				c.set(x+dx, h-3-j, '█', col)
-			}
-		}
-		if slot >= 2 {
-			c.text(6+i*slot, h-2, strconv.Itoa(i), -1)
-		}
-		if slot >= 4 {
-			c.text(6+i*slot, 1, fmt.Sprintf("%.0f", v), col)
-		}
-	}
-	c.text(1, 2, "100", -1)
-	if plotH >= 3 {
-		c.text(2, 2+plotH/2, "50", -1)
-	}
-	c.text(3, h-3, "0", -1)
-	return c.lines()
-}
-
 func drawHBars(c *canvas, labels, texts []string, vals, maxes []float64, dark bool) int {
 	lw := 12
 	bx := lw + 2
@@ -329,9 +289,9 @@ func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, dark bool) {
 // cpuBlock renders per-core load as htop-style bars "N[||||   42.0%]".
 // Fill is '|', empty is space, the percentage sits inside the bracket. If the
 // core count exceeds the available rows, cores split into two columns (htop way).
-func cpuBlock(w, h int, vals []float64, dark bool) []string {
+func cpuBlock(title string, w, h int, vals []float64, dark bool) []string {
 	c := newCanvas(w, h)
-	c.box("CPU")
+	c.box(title)
 	n := len(vals)
 	if n == 0 || w < 16 || h < 4 {
 		return c.lines()
