@@ -385,7 +385,8 @@ func thermals() []thermal {
 		if err != nil {
 			high, err = readFloat(filepath.Join(z, "trip_point_0_temp"))
 		}
-		if err != nil {
+		// -32768000 is the kernel's "no limit" sentinel for trip points.
+		if err != nil || high <= 0 {
 			high = 100000
 		}
 		label := filepath.Base(z)
