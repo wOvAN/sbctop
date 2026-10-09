@@ -289,7 +289,8 @@ func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, dark bool) {
 // cpuBlock renders per-core load as htop-style bars "N[||||   42.0%]".
 // Fill is '|', empty is space, the percentage sits inside the bracket. If the
 // core count exceeds the available rows, cores split into two columns (htop way).
-func cpuBlock(title string, w, h int, vals []float64, dark bool) []string {
+// subtitle, when non-empty, is drawn on the last inner row (e.g. NPU freq/volt/power).
+func cpuBlock(title string, w, h int, vals []float64, dark bool, subtitle string) []string {
 	c := newCanvas(w, h)
 	c.box(title)
 	n := len(vals)
@@ -323,6 +324,9 @@ func cpuBlock(title string, w, h int, vals []float64, dark bool) []string {
 	}
 	if shown := cols * perCol; shown < n {
 		c.text(1, 1+perCol, fmt.Sprintf("+%d", n-shown), -1)
+	}
+	if subtitle != "" {
+		c.text(2, h-2, subtitle, -1)
 	}
 	return c.lines()
 }

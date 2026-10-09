@@ -37,7 +37,7 @@ func TestDVFSSpark(t *testing.T) {
 }
 
 func TestCPUBlockHtop(t *testing.T) {
-	got := cpuBlock("CPU", 40, 12, []float64{0, 50, 100}, true)
+	got := cpuBlock("CPU", 40, 12, []float64{0, 50, 100}, true, "")
 	joined := strings.Join(got, "\n")
 	if strings.Contains(joined, "▒") || strings.Contains(joined, "█") {
 		t.Fatalf("htop uses '|' not blocks:\n%s", joined)
@@ -53,7 +53,7 @@ func TestCPUBlockTwoColumns(t *testing.T) {
 	for i := range vals {
 		vals[i] = float64(i * 6)
 	}
-	got := cpuBlock("CPU", 80, 8, vals, true)
+	got := cpuBlock("CPU", 80, 8, vals, true, "")
 	joined := strings.Join(got, "\n")
 	// Both core 0 and core 8 (second column) must appear.
 	if !strings.Contains(joined, "0[") || !strings.Contains(joined, "8[") {
