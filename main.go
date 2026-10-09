@@ -28,7 +28,7 @@ func main() {
 	flag.Parse()
 
 	if *showVer {
-		fmt.Println("rkmon", version)
+		fmt.Println("sbctop", version)
 		return
 	}
 	if *interval <= 0 {

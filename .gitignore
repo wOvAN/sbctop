@@ -1,6 +1,6 @@
-rkmon
-rkmon-*
-rkmon-arm64
+sbctop
+sbctop-*
+sbctop-arm64
 *.test
 *.out
 coverage.out

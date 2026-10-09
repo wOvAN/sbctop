@@ -1,40 +1,40 @@
-# rkmon
+# sbctop
 
-Single-binary terminal monitor for Rockchip SBCs: NPU, RGA, Mali GPU, CPU,
-memory and thermals. Zero dependencies (Go stdlib only), hand-rolled ANSI
-TUI with a braille line plot.
+Single-binary terminal monitor for single-board computers (Rockchip,
+Raspberry Pi): NPU, RGA, GPU, CPU, memory and thermals. Zero dependencies
+(Go stdlib only), hand-rolled ANSI TUI with a braille line plot.
 
 ## Install
 
-On a Rockchip board (Linux/aarch64):
+On an SBC (Linux/aarch64):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wOvAN/rkmon/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/wOvAN/sbctop/main/install.sh | sudo bash
 ```
 
 ## Usage
 
 ```sh
-sudo rkmon            # full dashboard
-sudo rkmon -n         # NPU load only (line plot)
-sudo rkmon -b         # NPU load as bars
-sudo rkmon -r         # merge RGA load into the NPU block
-sudo rkmon -d         # dark-mode colors
-sudo rkmon -i 0.5     # refresh every 500 ms
-rkmon -v              # print version
+sudo sbctop            # full dashboard
+sudo sbctop -n         # NPU load only (line plot)
+sudo sbctop -b         # NPU load as bars
+sudo sbctop -r         # merge RGA load into the NPU block
+sudo sbctop -d         # dark-mode colors
+sudo sbctop -i 0.5     # refresh every 500 ms
+sbctop -v              # print version
 ```
 
 Quit with `q`, `Q`, `Esc` or Ctrl-C.
 
-Requires root: the data comes from debugfs (`/sys/kernel/debug/rknpu`,
-`rkrga`, `mali0`) which is root-only. Off-device the binary exits with
-"Cannot read ... Run with `sudo`" — that is expected, it needs a Rockchip
-SoC (tested on RK3588).
+Requires root: the data comes from debugfs/sysfs (Rockchip `rknpu` / `rkrga`
+/ `mali0`, Raspberry Pi `v3d`) which is root-only. Off-device the binary
+exits with "Cannot read ... Run with `sudo`" — that is expected (tested on
+RK3588 and Raspberry Pi 4).
 
 ## Build
 
 ```sh
-make          # lint + build rkmon-arm64
+make          # lint + build sbctop-arm64
 make test     # unit tests, run anywhere (pure parsers/renderers)
 make install  # install to /usr/local/bin
 ```
@@ -46,8 +46,9 @@ make install  # install to /usr/local/bin
 - **Thermals** — one bar per thermal zone against its critical temperature.
 - **CPU** — htop-style per-core bars, two columns when they do not fit.
 - **Memory** — RAM and swap usage bars.
-- **GPU** — devfreq load/clock/governor, DDR clock, Mali busy time, active
-  contexts, total GPU memory and the top memory-consuming processes.
+- **GPU** — backend-specific: Rockchip Mali (devfreq load/clock/governor,
+  DDR clock, busy time, active contexts, total memory, top processes) or
+  Raspberry Pi VideoCore (load + fixed clock).
 
 ## Releases
 

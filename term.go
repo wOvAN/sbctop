@@ -8,7 +8,7 @@ import (
 )
 
 func versionLine(w int, ver string, drivers []string) string {
-	s := "rkmon: " + ver
+	s := "sbctop: " + ver
 	for _, d := range drivers {
 		if d != "" {
 			s += "  " + strings.ReplaceAll(d, "\n", " ")

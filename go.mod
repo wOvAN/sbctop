@@ -1,3 +1,3 @@
-module rkmon
+module sbctop
 
 go 1.27

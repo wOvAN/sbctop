@@ -1,4 +1,4 @@
-BIN := rkmon-arm64
+BIN := sbctop-arm64
 PREFIX ?= /usr/local
 VERSION ?= $(shell git describe --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -11,7 +11,7 @@ build:
 	CGO_ENABLED=0 GOARCH=arm64 GOOS=linux go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN) .
 
 install: build
-	install -Dm 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/rkmon
+	install -Dm 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/sbctop
 
 test:
 	go test ./...
