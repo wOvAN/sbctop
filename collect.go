@@ -47,6 +47,41 @@ func readOrDie(path string) string {
 	return string(b)
 }
 
+// readSafe returns the trimmed file contents, or "" if it cannot be read.
+func readSafe(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// caps reports which Rockchip-only subsystems are present on this board.
+// Generic blocks (CPU / memory / thermals) always work; these gate the rest.
+type caps struct {
+	npu, rga, gpu bool
+}
+
+func detectCaps() caps {
+	gpu := false
+	if dirs, _ := filepath.Glob("/sys/class/devfreq/*gpu*"); len(dirs) > 0 {
+		gpu = true
+	}
+	if fileExists("/sys/kernel/debug/mali0/scheduler_state") {
+		gpu = true
+	}
+	return caps{
+		npu: fileExists(npuLoadPath),
+		rga: fileExists(rgaLoadPath),
+		gpu: gpu,
+	}
+}
+
 func readFloat(path string) (float64, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

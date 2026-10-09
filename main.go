@@ -35,9 +35,9 @@ func main() {
 		die("interval must be > 0")
 	}
 
-	readOrDie(npuLoadPath)
-	kver := afterColon(readOrDie(npuVerPath))
-	rv := afterColon(readOrDie(rgaVerPath))
+	cap := detectCaps()
+	kver := afterColon(readSafe(npuVerPath))
+	rv := afterColon(readSafe(rgaVerPath))
 	lib := libVersion()
 
 	keys, restore := keyReader()
@@ -48,24 +48,29 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	var drivers []string
+	if cap.npu {
+		drivers = append(drivers, "librknnrt: "+lib, "Kmod: "+kver)
+	}
+	if cap.rga {
+		drivers = append(drivers, "RGA: "+rv)
+	}
+
 	var samples [][]int
 	var prev []string
 	for {
-		loads := parseNPU(readOrDie(npuLoadPath))
-		samples = append(samples, loads)
-		if len(samples) > maxSamples {
-			samples = samples[1:]
+		var loads []int
+		if cap.npu {
+			loads = parseNPU(readOrDie(npuLoadPath))
+			samples = append(samples, loads)
+			if len(samples) > maxSamples {
+				samples = samples[1:]
+			}
 		}
 		w, h := termSize()
-		var frame []string
-		if *npuOnly {
-			frame = padTo(lineBlock(w, h-1, samples, npuState(), *darkMode), h-1)
-		} else {
-			topH, botH := (h-1)/2, (h-1)-(h-1)/2
-			lw := w / 2
-			rw := w - lw - 1
-			var npuBlock []string
-			if *rgaOn {
+
+		npuBlock := func(w, h int) []string {
+			if *rgaOn && cap.rga {
 				names, rloads := parseRGA(readOrDie(rgaLoadPath))
 				labels := make([]string, len(loads)+len(names))
 				vals := make([]float64, len(loads)+len(names))
@@ -76,16 +81,24 @@ func main() {
 				for i, nm := range names {
 					labels[len(loads)+i], vals[len(loads)+i], maxes[len(loads)+i] = nm, rloads[i], 100
 				}
-				npuBlock = hbarsBlock(lw, topH, "NPU/RGA Load", labels, vals, maxes, "%", *darkMode)
-			} else if *npuBars {
+				return hbarsBlock(w, h, "NPU/RGA Load", labels, vals, maxes, "%", *darkMode)
+			}
+			if *npuBars {
 				vals := make([]float64, len(loads))
 				for i, v := range loads {
 					vals[i] = float64(v)
 				}
-				npuBlock = cpuBlock("NPU Load", lw, topH, vals, *darkMode, npuState())
-			} else {
-				npuBlock = lineBlock(lw, topH, samples, npuState(), *darkMode)
+				return cpuBlock("NPU Load", w, h, vals, *darkMode, npuState())
 			}
+			return lineBlock(w, h, samples, npuState(), *darkMode)
+		}
+
+		var frame []string
+		if *npuOnly && cap.npu {
+			frame = padTo(npuBlock(w, h-1), h-1)
+		} else {
+			cpus := cpuPercents()
+			memU, memT, swpU, swpT := memSwap()
 			ts := thermals()
 			tLabels := make([]string, len(ts))
 			tVals := make([]float64, len(ts))
@@ -93,27 +106,35 @@ func main() {
 			for i, t := range ts {
 				tLabels[i], tVals[i], tMaxes[i] = t.label, t.temp, t.high
 			}
-			thermalBlock := hbarsBlock(lw, botH, "Thermals", tLabels, tVals, tMaxes, "ºC", *darkMode)
-
-			memU, memT, swpU, swpT := memSwap()
-			g := readGPU()
-
-			cpus := cpuPercents()
-			memH := 5
-			if memH > topH {
-				memH = topH
+			var g gpuInfo
+			if cap.gpu {
+				g = readGPU()
 			}
-			cpuH := topH - memH
-			cpuB := cpuBlock("CPU", rw, cpuH, cpus, *darkMode, "")
-			memB := memBlock(rw, memH, memU, memT, swpU, swpT, *darkMode)
-			topRight := stackBlocks(cpuB, memB)
 
-			gpuB := gpuBlock(rw, botH, g, *darkMode)
-
-			frame = append(sideBySide(padTo(npuBlock, topH), padTo(topRight, topH)),
-				sideBySide(padTo(thermalBlock, botH), padTo(gpuB, botH))...)
+			topH, botH := (h-1)/2, (h-1)-(h-1)/2
+			var topFns, botFns []func(w, h int) []string
+			if cap.npu {
+				topFns = append(topFns, npuBlock)
+			}
+			topFns = append(topFns, func(w, h int) []string {
+				memH := 5
+				if memH > h {
+					memH = h
+				}
+				return stackBlocks(cpuBlock("CPU", w, h-memH, cpus, *darkMode, ""),
+					memBlock(w, memH, memU, memT, swpU, swpT, *darkMode))
+			})
+			botFns = append(botFns, func(w, h int) []string {
+				return hbarsBlock(w, h, "Thermals", tLabels, tVals, tMaxes, "ºC", *darkMode)
+			})
+			if cap.gpu {
+				botFns = append(botFns, func(w, h int) []string {
+					return gpuBlock(w, h, g, *darkMode)
+				})
+			}
+			frame = append(renderRow(topFns, w, topH), renderRow(botFns, w, botH)...)
 		}
-		frame = append(frame, versionLine(w, version, lib, kver, rv))
+		frame = append(frame, versionLine(w, version, drivers))
 		var sb strings.Builder
 		for i, l := range frame {
 			if i < len(prev) && prev[i] == l {

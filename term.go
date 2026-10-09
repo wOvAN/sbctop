@@ -1,16 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"syscall"
 	"unsafe"
 )
 
-func versionLine(w int, ver, lib, kver, rv string) string {
-	lib = strings.ReplaceAll(lib, "\n", " ")
-	s := fmt.Sprintf("rkmon: %s  librknnrt: %s  Kmod: %s  RGA: %s", ver, lib, kver, rv)
+func versionLine(w int, ver string, drivers []string) string {
+	s := "rkmon: " + ver
+	for _, d := range drivers {
+		if d != "" {
+			s += "  " + strings.ReplaceAll(d, "\n", " ")
+		}
+	}
 	if r := []rune(s); len(r) > w {
 		return string(r[:max(w-1, 0)]) + "…"
 	}
@@ -81,6 +84,32 @@ func stackBlocks(a, b []string) []string {
 	}
 	for _, l := range b {
 		out = append(out, padToWidth(l, mw))
+	}
+	return out
+}
+
+// renderRow lays out blocks in one row, splitting the width evenly (the last
+// block takes the remainder) and joining them with a 1-column gap. A single
+// block spans the full width, which is how missing quadrants degrade.
+func renderRow(fns []func(w, h int) []string, w, h int) []string {
+	n := len(fns)
+	if n == 0 {
+		return nil
+	}
+	gap := 1
+	each := (w - gap*(n-1)) / n
+	var out []string
+	for i, fn := range fns {
+		wi := each
+		if i == n-1 {
+			wi = w - gap*(n-1) - each*(n-1)
+		}
+		part := padTo(fn(wi, h), h)
+		if out == nil {
+			out = part
+		} else {
+			out = sideBySide(out, part)
+		}
 	}
 	return out
 }
