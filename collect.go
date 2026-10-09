@@ -368,7 +368,13 @@ type thermal struct {
 }
 
 func thermals() []thermal {
+	// Zone types use hyphens (soc-thermal), hwmon names underscores
+	// (soc_thermal): normalize for dedup.
+	norm := func(s string) string {
+		return strings.TrimSuffix(strings.ReplaceAll(s, "-", "_"), "_thermal")
+	}
 	var res []thermal
+	seen := map[string]bool{}
 	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
 	for _, z := range zones {
 		t, err := readFloat(filepath.Join(z, "temp"))
@@ -387,6 +393,28 @@ func thermals() []thermal {
 			label = strings.TrimSpace(string(b))
 		}
 		label = strings.TrimSuffix(label, "_thermal")
+		seen[norm(label)] = true
+		res = append(res, thermal{label, math.Floor(t / 1000), math.Floor(high / 1000)})
+	}
+	// hwmon adds sensors with no thermal_zone (NVMe SSD, ...).
+	mons, _ := filepath.Glob("/sys/class/hwmon/hwmon*")
+	for _, m := range mons {
+		nb, err := os.ReadFile(filepath.Join(m, "name"))
+		if err != nil {
+			continue
+		}
+		label := strings.TrimSpace(string(nb))
+		if label == "test" || seen[norm(label)] {
+			continue
+		}
+		t, err := readFloat(filepath.Join(m, "temp1_input"))
+		if err != nil {
+			continue
+		}
+		high, err := readFloat(filepath.Join(m, "temp1_max"))
+		if err != nil {
+			high = 100000
+		}
 		res = append(res, thermal{label, math.Floor(t / 1000), math.Floor(high / 1000)})
 	}
 	return res
