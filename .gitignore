@@ -6,5 +6,8 @@ rkmon-arm64
 coverage.out
 .idea/
 .vscode/
+.info/
 *.swp
 .DS_Store
+AGENTS.md
+CLAUDE.md
