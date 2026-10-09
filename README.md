@@ -4,6 +4,19 @@ Single-binary terminal monitor for single-board computers (Rockchip,
 Raspberry Pi): NPU, RGA, GPU, CPU, memory and thermals. Zero dependencies
 (Go stdlib only), hand-rolled ANSI TUI with a braille line plot.
 
+## Boards
+
+Tested on:
+
+- **Rockchip RK3588** — full set: NPU, RGA, Mali GPU, CPU, memory, thermals.
+- **Raspberry Pi 4** (BCM2711) — CPU, memory, thermals, VideoCore VI GPU
+  (load + fixed clock).
+
+Any Linux/aarch64 SBC works: CPU, memory and thermals are generic, and the
+NPU / RGA / GPU blocks appear only when the board exposes them (Rockchip
+`rknpu` / `rkrga` / `mali0`, Raspberry Pi `v3d`). Other Rockchip SoCs and
+Raspberry Pi 3 are expected to work the same way.
+
 ## Install
 
 On an SBC (Linux/aarch64):
