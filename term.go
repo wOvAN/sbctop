@@ -148,15 +148,74 @@ func keyReader() (<-chan byte, func()) {
 	}
 	ch := make(chan byte, 8)
 	go func() {
-		b := make([]byte, 1)
 		for {
+			b := make([]byte, 1)
 			n, err := os.Stdin.Read(b)
 			if n != 1 || err != nil {
 				close(ch)
 				return
 			}
-			ch <- b[0]
+			if b[0] != 0x1b {
+				ch <- b[0]
+				continue
+			}
+			// ESC may open a CSI/SS3 sequence (arrows, fn keys, mouse). Drain
+			// any bytes already queued, then drop the whole sequence or keep a
+			// lone Esc as the quit key.
+			buf := []byte{b[0]}
+			setNonblock(fd, true)
+			for {
+				c, ok := readByte(fd)
+				if !ok {
+					break
+				}
+				buf = append(buf, c)
+			}
+			setNonblock(fd, false)
+			for _, k := range splitKeys(buf) {
+				ch <- k
+			}
 		}
 	}()
 	return ch, func() { _ = ioctl(fd, syscall.TCSETS, &old) }
+}
+
+// readByte reads one byte from stdin.
+func readByte(fd uintptr) (byte, bool) {
+	b := make([]byte, 1)
+	n, err := os.Stdin.Read(b)
+	return b[0], n == 1 && err == nil
+}
+
+// setNonblock toggles O_NONBLOCK on fd so a read can probe for queued input
+// without blocking (syscall.FcntlInt was removed from the stdlib in Go 1.27).
+func setNonblock(fd uintptr, on bool) {
+	fl, _, _ := syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_GETFL, 0)
+	if on {
+		fl |= syscall.O_NONBLOCK
+	} else {
+		fl &^= syscall.O_NONBLOCK
+	}
+	_, _, _ = syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_SETFL, fl)
+}
+
+// splitKeys turns a raw byte stream into logical keys: plain bytes pass
+// through; an ESC that opens a CSI (ESC [) or SS3 (ESC O) sequence is dropped
+// whole (consumed up to its final byte, 0x40-0x7e); a lone ESC is kept.
+func splitKeys(data []byte) []byte {
+	var out []byte
+	for i := 0; i < len(data); {
+		c := data[i]
+		if c != 0x1b || i+1 >= len(data) || (data[i+1] != '[' && data[i+1] != 'O') {
+			out = append(out, c)
+			i++
+			continue
+		}
+		i += 2
+		for i < len(data) && (data[i] < 0x40 || data[i] > 0x7e) {
+			i++
+		}
+		i++
+	}
+	return out
 }
