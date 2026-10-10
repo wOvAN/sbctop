@@ -171,7 +171,7 @@ func dvfsSpark(opp, freqs []uint64, ms []float64) string {
 
 func lineBlock(w, h int, samples [][]int, npu string, dark bool) []string {
 	c := newCanvas(w, h)
-	c.box("NPU Load")
+	c.box("NPU")
 	if len(samples) == 0 || w < 20 || h < 6 {
 		return c.lines()
 	}

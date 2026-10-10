@@ -54,7 +54,7 @@ make install  # install to /usr/local/bin
 
 ## Screens
 
-- **NPU Load** — braille line plot of per-core load history, plus NPU
+- **NPU** — braille line plot of per-core load history, plus NPU
   frequency/voltage/power state; `-b` switches to bars, `-r` adds RGA cores.
 - **Thermals** — one bar per thermal zone against its critical temperature.
 - **CPU** — htop-style per-core bars, two columns when they do not fit.

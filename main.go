@@ -81,14 +81,14 @@ func main() {
 				for i, nm := range names {
 					labels[len(loads)+i], vals[len(loads)+i], maxes[len(loads)+i] = nm, rloads[i], 100
 				}
-				return hbarsBlock(w, h, "NPU/RGA Load", labels, vals, maxes, "%", *darkMode)
+				return hbarsBlock(w, h, "NPU/RGA", labels, vals, maxes, "%", *darkMode)
 			}
 			if *npuBars {
 				vals := make([]float64, len(loads))
 				for i, v := range loads {
 					vals[i] = float64(v)
 				}
-				return cpuBlock("NPU Load", w, h, vals, *darkMode, npuState())
+				return cpuBlock("NPU", w, h, vals, *darkMode, npuState())
 			}
 			return lineBlock(w, h, samples, npuState(), *darkMode)
 		}

@@ -13,7 +13,7 @@ func TestRender(t *testing.T) {
 	}
 	joined := strings.Join(block, "")
 	braille := strings.ContainsFunc(joined, func(r rune) bool { return r >= 0x2800 && r <= 0x28ff })
-	if !strings.Contains(joined, "NPU Load") || !braille {
+	if !strings.Contains(joined, "NPU") || !braille {
 		t.Fatalf("no braille plot rendered:\n%s", joined)
 	}
 	hb := hbarsBlock(40, 5, "Thermals", []string{"soc"}, []float64{55}, []float64{85}, "ºC", false)
