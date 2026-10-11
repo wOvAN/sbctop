@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"syscall"
@@ -64,6 +65,23 @@ func padToWidth(s string, w int) string {
 		return s + strings.Repeat(" ", d)
 	}
 	return s
+}
+
+// renderDiff appends cursor-addressed writes that transform prev into frame,
+// rewriting only changed lines and clearing leftover rows below the frame.
+// prev must be nil after a console resize: the terminal reflows or clips old
+// content on its own, so "unchanged" strings can no longer be trusted to
+// match what is really on screen.
+func renderDiff(sb *strings.Builder, prev, frame []string) {
+	for i, l := range frame {
+		if i < len(prev) && prev[i] == l {
+			continue
+		}
+		fmt.Fprintf(sb, "\033[%d;1H%s\033[K", i+1, l)
+	}
+	for i := len(frame); i < len(prev); i++ {
+		fmt.Fprintf(sb, "\033[%d;1H\033[K", i+1)
+	}
 }
 
 func stackBlocks(a, b []string) []string {

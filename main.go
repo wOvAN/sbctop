@@ -47,6 +47,9 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	sigWinch := make(chan os.Signal, 1)
+	signal.Notify(sigWinch, syscall.SIGWINCH)
+	defer signal.Stop(sigWinch)
 
 	var drivers []string
 	if cap.npu {
@@ -58,6 +61,7 @@ func main() {
 
 	var samples [][]int
 	var prev []string
+	pw, ph := 0, 0
 	bars := *npuBars // N/N toggles sparklines <-> bars at runtime
 	for {
 		var loads []int
@@ -69,6 +73,11 @@ func main() {
 			}
 		}
 		w, h := termSize()
+		resized := w != pw || h != ph
+		if resized {
+			pw, ph = w, h
+			prev = nil // force a full repaint (see renderDiff)
+		}
 
 		npuBlock := func(w, h int) []string {
 			if *rgaOn && cap.rga {
@@ -147,15 +156,10 @@ func main() {
 		}
 		frame = append(frame, versionLine(w, version, drivers))
 		var sb strings.Builder
-		for i, l := range frame {
-			if i < len(prev) && prev[i] == l {
-				continue
-			}
-			fmt.Fprintf(&sb, "\033[%d;1H%s\033[K", i+1, l)
+		if resized {
+			sb.WriteString("\033[2J") // drop reflow/clip leftovers anywhere on screen
 		}
-		for i := len(frame); i < len(prev); i++ {
-			fmt.Fprintf(&sb, "\033[%d;1H\033[K", i+1)
-		}
+		renderDiff(&sb, prev, frame)
 		prev = frame
 		_, _ = os.Stdout.Write([]byte(sb.String()))
 
@@ -169,6 +173,10 @@ func main() {
 			if k == 'n' || k == 'N' {
 				bars = !bars
 			}
+		case <-sigWinch:
+			timer.Stop()
+			// Fall through to an immediate re-render; the size check above
+			// turns it into a full repaint when the window actually changed.
 		case <-ctx.Done():
 			timer.Stop()
 			return
