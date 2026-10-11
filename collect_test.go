@@ -14,6 +14,11 @@ func TestParseNPU(t *testing.T) {
 	if got := parseNPU(single); !reflect.DeepEqual(got, []int{42}) {
 		t.Fatalf("single: %v", got)
 	}
+	// Exact single-line format from RK3588 debugfs (trailing commas).
+	hw := "NPU load:  Core0:  0%, Core1:  0%, Core2:  0%,"
+	if got := parseNPU(hw); !reflect.DeepEqual(got, []int{0, 0, 0}) {
+		t.Fatalf("hw single-line: %v", got)
+	}
 }
 
 func TestParseRGA(t *testing.T) {
