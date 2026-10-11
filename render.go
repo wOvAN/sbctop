@@ -70,23 +70,26 @@ func (c *canvas) text(x, y int, s string, col int) {
 	}
 }
 
-func (c *canvas) dot(ox, oy, sx, sy, col int) {
-	cx, cy := ox+sx/2, oy+sy/4
-	if cx < 0 || cx >= c.w || cy < 0 || cy >= c.h {
-		return
-	}
-	if c.grid[cy][cx] < 0x2800 || c.grid[cy][cx] > 0x28ff {
-		c.grid[cy][cx] = 0x2800
-	}
-	c.grid[cy][cx] += rune(1 << [8]int{0, 1, 2, 6, 3, 4, 5, 7}[(sy%4)*2+sx%2])
-	c.cols[cy][cx] = col
-}
+// kv pairs a dimmed key with its value: {"freq", "1000MHz"}.
+type kv struct{ k, v string }
 
-func (c *canvas) line(ox, oy, x0, y0, x1, y1, col int) {
-	dx, dy := x1-x0, y1-y0
-	steps := max(abs(dx), abs(dy))
-	for s := 1; s <= steps; s++ {
-		c.dot(ox, oy, x0+dx*s/steps, y0+dy*s/steps, col)
+// kvLine draws head plus key/value pairs separated by a two-space gap,
+// dimming keys (90) and bolding values (1) so pairs scan without reading.
+// Separators use the default color so they stay trimmable trailing space.
+func (c *canvas) kvLine(x, y int, head string, pairs []kv) {
+	if head != "" {
+		c.text(x, y, head+" ", 1)
+		x += len([]rune(head)) + 1
+	}
+	for i, p := range pairs {
+		if i > 0 {
+			c.text(x, y, "  ", -1)
+			x += 2
+		}
+		c.text(x, y, p.k+" ", 90)
+		x += len([]rune(p.k)) + 1
+		c.text(x, y, p.v, 1)
+		x += len([]rune(p.v))
 	}
 }
 
@@ -136,8 +139,6 @@ func (c *canvas) lines() []string {
 
 func center(s string, w int) int { return (w - len([]rune(s))) / 2 }
 
-func abs(x int) int { return max(x, -x) }
-
 var spark = []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
 
 // dvfsSpark renders the DVFS duty-cycle as a one-line sparkline: one bar per OPP
@@ -169,51 +170,69 @@ func dvfsSpark(opp, freqs []uint64, ms []float64) string {
 	return fmt.Sprintf("%s %d-%dM", sb.String(), fs[0]/1e6, fs[len(fs)-1]/1e6)
 }
 
-func lineBlock(w, h int, samples [][]int, npu string, dark bool) []string {
+// sparkRowsBlock renders one history sparkline per NPU core: "Core0  42% ▂▅▇…".
+// Every core stays visible no matter how the values overlap (unlike overlaid
+// line plots, where coincident series collapse into one color). Histories are
+// downsampled with a per-bucket max so rendering is deterministic. Cores that
+// don't fit get a "+M" overflow label, the cpuBlock way.
+func sparkRowsBlock(w, h int, samples [][]int, dark bool, sub []kv) []string {
 	c := newCanvas(w, h)
 	c.box("NPU")
-	if len(samples) == 0 || w < 20 || h < 6 {
+	if len(samples) == 0 || len(samples[0]) == 0 || w < 16 || h < 4 {
 		return c.lines()
 	}
 	nCore := len(samples[0])
-	pw, ph := w-6, h-5
-	subW, subH := pw*2, ph*4
-	n := len(samples)
-	for k := 0; k < nCore; k++ {
-		col := seriesCol(k, dark)
-		px, py := -1, -1
-		for i := 0; i < n; i++ {
-			if k >= len(samples[i]) {
-				continue
-			}
-			v := samples[i][k]
-			sx := i * (subW - 1) / max(n-1, 1)
-			sy := (100 - v) * (subH - 1) / 100
-			if px >= 0 {
-				c.line(5, 1, px, py, sx, sy, col)
-			}
-			c.dot(5, 1, sx, sy, col)
-			px, py = sx, sy
+	hists := make([][]int, nCore)
+	for _, s := range samples {
+		for k := 0; k < nCore && k < len(s); k++ {
+			hists[k] = append(hists[k], s[k])
 		}
 	}
-	lx := w - 2
-	for k := nCore - 1; k >= 0; k-- {
-		seg := fmt.Sprintf("Core%d", k)
-		lx -= len(seg)
-		c.text(lx, 1, seg, seriesCol(k, dark))
-		if k > 0 {
-			lx--
+	rowsAvail := h - 2
+	if len(sub) > 0 {
+		rowsAvail--
+	}
+	shown := min(nCore, rowsAvail)
+	more := ""
+	if shown < nCore {
+		shown = max(rowsAvail-1, 0)
+		more = fmt.Sprintf("+%d", nCore-shown)
+	}
+	lw := len(fmt.Sprintf("Core%d", nCore-1))
+	for i := 0; i < shown; i++ {
+		y := 1 + i
+		col := seriesCol(i, dark)
+		last := 0
+		if len(hists[i]) > 0 {
+			last = hists[i][len(hists[i])-1]
+		}
+		c.text(1, y, fmt.Sprintf("Core%-*d", lw-4, i), 90)
+		c.text(1+lw+1, y, fmt.Sprintf("%3d%%", last), col)
+		sx := 1 + lw + 1 + 4 + 1
+		for x := sx; x < w-1; x++ {
+			lvl := 0
+			if len(hists[i]) > 0 {
+				avail := w - 1 - sx
+				a := (x - sx) * len(hists[i]) / avail
+				bb := (x - sx + 1) * len(hists[i]) / avail
+				if bb <= a {
+					bb = a + 1
+				}
+				mx := 0
+				for _, v := range hists[i][a:bb] {
+					mx = max(mx, v)
+				}
+				lvl = mx * (len(spark) - 1) / 100
+			}
+			c.set(x, y, spark[lvl], col)
 		}
 	}
-	c.text(1, 1, "100", -1)
-	c.text(2, 1+ph/2, "50", -1)
-	c.text(3, 1+ph, "0", -1)
-	c.text(5, h-3, "0", -1)
-	mid := strconv.Itoa(n / 2)
-	c.text(5+pw/2-len(mid)/2, h-3, mid, -1)
-	last := strconv.Itoa(n - 1)
-	c.text(w-2-len(last), h-3, last, -1)
-	c.text(2, h-2, npu, -1)
+	if more != "" {
+		c.text(1, 1+shown, more, -1)
+	}
+	if len(sub) > 0 {
+		c.kvLine(1, h-2, "NPU:", sub)
+	}
 	return c.lines()
 }
 
@@ -289,8 +308,8 @@ func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, dark bool) {
 // cpuBlock renders per-core load as htop-style bars "N[||||   42.0%]".
 // Fill is '|', empty is space, the percentage sits inside the bracket. If the
 // core count exceeds the available rows, cores split into two columns (htop way).
-// subtitle, when non-empty, is drawn on the last inner row (e.g. NPU freq/volt/power).
-func cpuBlock(title string, w, h int, vals []float64, dark bool, subtitle string) []string {
+// sub, when non-empty, is drawn on the last inner row as "NPU:" key/value pairs.
+func cpuBlock(title string, w, h int, vals []float64, dark bool, sub []kv) []string {
 	c := newCanvas(w, h)
 	c.box(title)
 	n := len(vals)
@@ -325,8 +344,8 @@ func cpuBlock(title string, w, h int, vals []float64, dark bool, subtitle string
 	if shown := cols * perCol; shown < n {
 		c.text(1, 1+perCol, fmt.Sprintf("+%d", n-shown), -1)
 	}
-	if subtitle != "" {
-		c.text(2, h-2, subtitle, -1)
+	if len(sub) > 0 {
+		c.kvLine(2, h-2, "NPU:", sub)
 	}
 	return c.lines()
 }
@@ -370,15 +389,25 @@ func gpuBlock(w, h int, g gpuInfo, dark bool) []string {
 	c.box("GPU")
 	ty := drawHBars(c, []string{"Load"}, []string{fmt.Sprintf("%.0f%%", g.load)}, []float64{g.load}, []float64{100}, dark)
 	y := ty + 1
-	c.text(2, y, fmt.Sprintf("Clock %dMHz (%d-%d)  gov %s", g.freq/1e6, g.minF/1e6, g.maxF/1e6, g.gov), -1)
+	c.kvLine(2, y, "", []kv{
+		{"Clock", fmt.Sprintf("%dMHz (%d-%d)", g.freq/1e6, g.minF/1e6, g.maxF/1e6)},
+		{"gov", g.gov},
+	})
 	y++
-	c.text(2, y, fmt.Sprintf("State %s  busy %.0f%%  ctx %d", g.state, g.util, g.ctx), -1)
+	c.kvLine(2, y, "", []kv{
+		{"State", g.state},
+		{"busy", fmt.Sprintf("%.0f%%", g.util)},
+		{"ctx", fmt.Sprintf("%d", g.ctx)},
+	})
 	y++
-	c.text(2, y, fmt.Sprintf("Mem %s", fmtSize(g.memMB)), -1)
+	c.kvLine(2, y, "", []kv{{"Mem", fmtSize(g.memMB)}})
 	y++
-	c.text(2, y, fmt.Sprintf("DDR %dMHz (%d-%d)  gov %s", g.memFreq/1e6, g.memMinF/1e6, g.memMaxF/1e6, g.memGov), -1)
+	c.kvLine(2, y, "", []kv{
+		{"DDR", fmt.Sprintf("%dMHz (%d-%d)", g.memFreq/1e6, g.memMinF/1e6, g.memMaxF/1e6)},
+		{"gov", g.memGov},
+	})
 	y++
-	c.text(2, y, "DVFS "+dvfsSpark(g.opp, g.dvfsFreq, g.dvfsMs), -1)
+	c.kvLine(2, y, "", []kv{{"DVFS", dvfsSpark(g.opp, g.dvfsFreq, g.dvfsMs)}})
 	y++
 	for x := 1; x < w-1; x++ {
 		c.set(x, y, '─', 90)
@@ -402,6 +431,6 @@ func piGpuBlock(w, h int, load float64, dark bool) []string {
 	c := newCanvas(w, h)
 	c.box("GPU")
 	ty := drawHBars(c, []string{"Load"}, []string{fmt.Sprintf("%.0f%%", load)}, []float64{load}, []float64{100}, dark)
-	c.text(2, ty+1, "VideoCore VI  500MHz", -1)
+	c.kvLine(2, ty+1, "", []kv{{"VideoCore VI", "500MHz"}})
 	return c.lines()
 }

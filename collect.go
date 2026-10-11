@@ -149,12 +149,15 @@ func afterColon(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func npuState() string {
+func npuState() []kv {
 	freq, _ := readFloat(npuFreqPath)
 	volt, _ := readFloat(npuVoltPath)
 	power, _ := os.ReadFile(npuPowerPath)
-	return fmt.Sprintf("NPU: freq %dMHz  volt %dmV  power %s",
-		uint64(freq)/1e6, uint64(volt)/1000, strings.TrimSpace(string(power)))
+	return []kv{
+		{"freq", fmt.Sprintf("%dMHz", uint64(freq)/1e6)},
+		{"volt", fmt.Sprintf("%dmV", uint64(volt)/1000)},
+		{"power", strings.TrimSpace(string(power))},
+	}
 }
 
 type gpuProc struct {

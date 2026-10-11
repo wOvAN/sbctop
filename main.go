@@ -15,7 +15,7 @@ var version = "dev"
 
 func main() {
 	npuOnly := flag.Bool("n", false, "Only show the NPU load")
-	npuBars := flag.Bool("b", false, "Show the NPU with bars instead of lines")
+	npuBars := flag.Bool("b", false, "Show the NPU with bars instead of sparklines")
 	rgaOn := flag.Bool("r", false, "Show the RGA load")
 	darkMode := flag.Bool("d", false, "Enable dark mode")
 	interval := flag.Float64("i", 1.0, "Refresh interval in seconds")
@@ -58,6 +58,7 @@ func main() {
 
 	var samples [][]int
 	var prev []string
+	bars := *npuBars // N/N toggles sparklines <-> bars at runtime
 	for {
 		var loads []int
 		if cap.npu {
@@ -83,14 +84,14 @@ func main() {
 				}
 				return hbarsBlock(w, h, "NPU/RGA", labels, vals, maxes, "%", *darkMode)
 			}
-			if *npuBars {
+			if bars {
 				vals := make([]float64, len(loads))
 				for i, v := range loads {
 					vals[i] = float64(v)
 				}
 				return cpuBlock("NPU", w, h, vals, *darkMode, npuState())
 			}
-			return lineBlock(w, h, samples, npuState(), *darkMode)
+			return sparkRowsBlock(w, h, samples, *darkMode, npuState())
 		}
 
 		var frame []string
@@ -128,7 +129,7 @@ func main() {
 				if memH > h {
 					memH = h
 				}
-				return stackBlocks(cpuBlock("CPU", w, h-memH, cpus, *darkMode, ""),
+				return stackBlocks(cpuBlock("CPU", w, h-memH, cpus, *darkMode, nil),
 					memBlock(w, memH, memU, memT, swpU, swpT, *darkMode))
 			})
 			botFns = append(botFns, func(w, h int) []string {
@@ -164,6 +165,9 @@ func main() {
 			timer.Stop()
 			if !ok || k == 'q' || k == 'Q' || k == 27 {
 				return
+			}
+			if k == 'n' || k == 'N' {
+				bars = !bars
 			}
 		case <-ctx.Done():
 			timer.Stop()

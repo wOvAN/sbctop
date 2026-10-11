@@ -37,7 +37,8 @@ sudo sbctop -i 0.5     # refresh every 500 ms
 sbctop -v              # print version
 ```
 
-Quit with `q`, `Q`, `Esc` or Ctrl-C.
+Quit with `q`, `Q`, `Esc` or Ctrl-C. `n` toggles the NPU block between
+sparklines and bars.
 
 Requires root: the data comes from debugfs/sysfs (Rockchip `rknpu` / `rkrga`
 / `mali0`, Raspberry Pi `v3d`) which is root-only. Off-device the binary
@@ -54,8 +55,8 @@ make install  # install to /usr/local/bin
 
 ## Screens
 
-- **NPU** — braille line plot of per-core load history, plus NPU
-  frequency/voltage/power state; `-b` switches to bars, `-r` adds RGA cores.
+- **NPU** — one history sparkline per core, plus NPU
+  frequency/voltage/power state; `n` (or `-b`) switches to bars, `-r` adds RGA cores.
 - **Thermals** — one bar per thermal zone against its critical temperature.
 - **CPU** — htop-style per-core bars, two columns when they do not fit.
 - **Memory** — RAM and swap usage bars.
