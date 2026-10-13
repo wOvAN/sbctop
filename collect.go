@@ -395,6 +395,19 @@ type cpuTimes struct{ total, idle uint64 }
 
 var prevCPU []cpuTimes
 
+// cpuFreqs reads each core's current cpufreq in MHz; nil when cpufreq is absent.
+func cpuFreqs() []int {
+	var res []int
+	for i := 0; ; i++ {
+		khz, err := readFloat(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i))
+		if err != nil {
+			break
+		}
+		res = append(res, int(khz/1000))
+	}
+	return res
+}
+
 func cpuPercents() []float64 {
 	b, err := os.ReadFile("/proc/stat")
 	if err != nil {

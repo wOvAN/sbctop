@@ -97,7 +97,7 @@ func main() {
 				for i, v := range loads {
 					vals[i] = float64(v)
 				}
-				return cpuBlock("NPU", w, h, vals, *darkMode, npuState())
+				return cpuBlock("NPU", w, h, vals, *darkMode, npuState(), nil)
 			}
 			return sparkRowsBlock(w, h, samples, *darkMode, npuState())
 		}
@@ -142,7 +142,7 @@ func main() {
 				if memH > h {
 					memH = h
 				}
-				return stackBlocks(cpuBlock("CPU", w, h-memH, cpus, *darkMode, nil),
+				return stackBlocks(cpuBlock("CPU", w, h-memH, cpus, *darkMode, nil, cpuFreqs()),
 					memBlock(w, memH, memU, memT, swpU, swpT, *darkMode))
 			})
 			botFns = append(botFns, func(w, h int) []string {

@@ -281,14 +281,14 @@ func hbarsBlock(w, h int, title string, labels []string, vals, maxes []float64, 
 	return c.lines()
 }
 
-// drawCore renders one htop-style core row "N[<fill |><space><pct>]" at (x, y)
-// within a column of width colW.
-func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, dark bool) {
+// drawCore renders one htop-style core row "N[<fill |><space><pct>] <freq>M"
+// at (x, y) within a column of width colW. freqW>0 reserves the frequency column.
+func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, freq, freqW int, dark bool) {
 	c.text(x, y, fmt.Sprintf("%*d", numW, num), -1)
 	bx := x + numW
 	c.set(bx, y, '[', -1)
 	pct := fmt.Sprintf("%.1f%%", v)
-	fillArea := colW - numW - 2 - len(pct)
+	fillArea := colW - numW - 2 - len(pct) - freqW
 	if fillArea < 1 {
 		fillArea = 1
 	}
@@ -303,18 +303,26 @@ func drawCore(c *canvas, x, y, num int, numW, colW int, v float64, dark bool) {
 	}
 	c.text(bx+1+fillArea, y, pct, col)
 	c.set(bx+1+fillArea+len(pct), y, ']', -1)
+	if freqW > 0 {
+		c.text(bx+2+fillArea+len(pct), y, fmt.Sprintf("%*dM", freqW-1, freq), 90)
+	}
 }
 
 // cpuBlock renders per-core load as htop-style bars "N[||||   42.0%]".
 // Fill is '|', empty is space, the percentage sits inside the bracket. If the
 // core count exceeds the available rows, cores split into two columns (htop way).
 // sub, when non-empty, is drawn on the last inner row as "NPU:" key/value pairs.
-func cpuBlock(title string, w, h int, vals []float64, dark bool, sub []kv) []string {
+// freqs, when exactly one per core, adds a trailing per-core MHz column.
+func cpuBlock(title string, w, h int, vals []float64, dark bool, sub []kv, freqs []int) []string {
 	c := newCanvas(w, h)
 	c.box(title)
 	n := len(vals)
 	if n == 0 || w < 16 || h < 4 {
 		return c.lines()
+	}
+	freqW := 0
+	if len(freqs) == n {
+		freqW = 6 // " 2400M"
 	}
 	rowsAvail := h - 3 // last inner row is kept for the "+N" overflow label
 	cols := 1
@@ -328,8 +336,8 @@ func cpuBlock(title string, w, h int, vals []float64, dark bool, sub []kv) []str
 	numW := max(len(strconv.Itoa(n-1)), 1)
 	gap := 1
 	colW := (w - 2 - gap*(cols-1)) / cols
-	if colW < numW+8 {
-		colW = numW + 8
+	if colW < numW+8+freqW {
+		colW = numW + 8 + freqW
 	}
 	for i := 0; i < perCol; i++ {
 		for col := 0; col < cols; col++ {
@@ -338,7 +346,11 @@ func cpuBlock(title string, w, h int, vals []float64, dark bool, sub []kv) []str
 				break
 			}
 			x := 1 + col*(colW+gap)
-			drawCore(c, x, 1+i, idx, numW, colW, vals[idx], dark)
+			f := 0
+			if freqW > 0 {
+				f = freqs[idx]
+			}
+			drawCore(c, x, 1+i, idx, numW, colW, vals[idx], f, freqW, dark)
 		}
 	}
 	if shown := cols * perCol; shown < n {
