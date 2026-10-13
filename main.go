@@ -79,20 +79,19 @@ func main() {
 			prev = nil // force a full repaint (see renderDiff)
 		}
 
-		npuBlock := func(w, h int) []string {
-			if *rgaOn && cap.rga {
-				names, rloads := parseRGA(readOrDie(rgaLoadPath))
-				labels := make([]string, len(loads)+len(names))
-				vals := make([]float64, len(loads)+len(names))
-				maxes := make([]float64, len(labels))
-				for i, v := range loads {
-					labels[i], vals[i], maxes[i] = fmt.Sprintf("NPU%d", i), float64(v), 100
-				}
-				for i, nm := range names {
-					labels[len(loads)+i], vals[len(loads)+i], maxes[len(loads)+i] = nm, rloads[i], 100
-				}
-				return hbarsBlock(w, h, "NPU/RGA", labels, vals, maxes, "%", *darkMode)
+		var rNames []string
+		var rLoads []float64
+		if *rgaOn && cap.rga {
+			rNames, rLoads = parseRGA(readOrDie(rgaLoadPath))
+		}
+		rgaBlock := func(w, h int) []string {
+			maxes := make([]float64, len(rNames))
+			for i := range maxes {
+				maxes[i] = 100
 			}
+			return hbarsBlock(w, h, "RGA", rNames, rLoads, maxes, "%", *darkMode)
+		}
+		npuBlock := func(w, h int) []string {
 			if bars {
 				vals := make([]float64, len(loads))
 				for i, v := range loads {
@@ -105,7 +104,12 @@ func main() {
 
 		var frame []string
 		if *npuOnly && cap.npu {
-			frame = padTo(npuBlock(w, h-1), h-1)
+			if len(rNames) > 0 {
+				rh := len(rNames) + 2
+				frame = padTo(stackBlocks(npuBlock(w, h-1-rh), rgaBlock(w, rh)), h-1)
+			} else {
+				frame = padTo(npuBlock(w, h-1), h-1)
+			}
 		} else {
 			cpus := cpuPercents()
 			memU, memT, swpU, swpT := memSwap()
@@ -151,6 +155,9 @@ func main() {
 					}
 					return piGpuBlock(w, h, piLoad, *darkMode)
 				})
+			}
+			if len(rNames) > 0 {
+				botFns = append(botFns, rgaBlock)
 			}
 			frame = append(renderRow(topFns, w, topH), renderRow(botFns, w, botH)...)
 		}

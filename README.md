@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/wOvAN/sbctop/main/install.sh | sudo
 sudo sbctop            # full dashboard
 sudo sbctop -n         # NPU load only (line plot)
 sudo sbctop -b         # NPU load as bars
-sudo sbctop -r         # merge RGA load into the NPU block
+sudo sbctop -r         # Show the RGA load as its own block
 sudo sbctop -d         # dark-mode colors
 sudo sbctop -i 0.5     # refresh every 500 ms
 sbctop -v              # print version
@@ -56,7 +56,8 @@ make install  # install to /usr/local/bin
 ## Screens
 
 - **NPU** — one history sparkline per core, plus NPU
-  frequency/voltage/power state; `n` (or `-b`) switches to bars, `-r` adds RGA cores.
+  frequency/voltage/power state; `n` (or `-b`) switches to bars.
+- **RGA** — one bar per RGA scheduler core (`-r`).
 - **Thermals** — one bar per thermal zone against its critical temperature.
 - **CPU** — htop-style per-core bars, two columns when they do not fit.
 - **Memory** — RAM and swap usage bars.

@@ -386,7 +386,7 @@ func memBlock(w, h int, memU, memT, swpU, swpT uint64, dark bool) []string {
 
 func gpuBlock(w, h int, g gpuInfo, dark bool) []string {
 	c := newCanvas(w, h)
-	c.box("GPU")
+	c.box("GPU Mali0")
 	ty := drawHBars(c, []string{"Load"}, []string{fmt.Sprintf("%.0f%%", g.load)}, []float64{g.load}, []float64{100}, dark)
 	y := ty + 1
 	c.kvLine(2, y, "", []kv{
